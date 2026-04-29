@@ -1,3 +1,3 @@
 # About
 
-Made by ELPiTiFOR.
+Project started by ELPiTiFOR.
