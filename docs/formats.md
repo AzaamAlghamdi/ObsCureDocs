@@ -25,9 +25,9 @@ Structure of IT_Item:
 
 For more info on each type, check these links:
 
-- [ITEM_TYPE](/constants/#item_type)
-- [EXTRA_INFO](/constants/#extra_info)
-- [DIFF_MODE](/constants/#diff_mode)
+- [ITEM_TYPE](constants.md/#item_type)
+- [EXTRA_INFO](constants.md/#extra_info)
+- [DIFF_MODE](constants.md/#diff_mode)
 
 ## TM
 General structure of the `.tm` format (everything is in MSB):

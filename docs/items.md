@@ -31,7 +31,7 @@ This file contains information on every single item in the game. For each one of
 them, it gives its type, its UID, some additional information that is only used
 for specific item types, a multiplier that is only truly used for ammunition,
 and the difficulties or modes in which the item can be found. Check
-[this link](/formats/#it) to learn about the format used in this file.
+[this link](formats.md/#it) to learn about the format used in this file.
 
 It doesn't specify, for example, the room in which the item can be found, as
 this is just a kind of catalog of items.
@@ -39,12 +39,12 @@ this is just a kind of catalog of items.
 ### .tm files
 Each room has at least one `.tm` file, which gives information such as the
 camera angles, the NPCs, and the items that can be picked up inside. Check
-[this link](/formats/#tm) to learn about this file format.
+[this link](formats.md/#tm) to learn about this file format.
 
 ### Hidden items
 Hidden items are handled as an event, in the `.hoe` files, which store (among
 other things) scripts/bytecode. Some functions are called in order to hide the
-items, and they are given some [ITEM_TYPE_SHORT](/constants/#item_type_short)
+items, and they are given some [ITEM_TYPE_SHORT](constants.md/#item_type_short)
 and some Item UIDs as arguments so that they know which specific items are being
 hidden and what their types are.
 
