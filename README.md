@@ -1,6 +1,6 @@
 # Requirements
-You need to install a recent version of Python and MkDocs (the version used is
-1.6.1).
+You need to install a recent version of Python and
+[MkDocs](https://www.mkdocs.org/getting-started/) (the version used is 1.6.1).
 
 # Developing
 If you want to modify the docs, I recommend launching the server like this:
