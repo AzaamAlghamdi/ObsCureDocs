@@ -91,3 +91,144 @@ the extra_info "1" (which corresponds to an EXTRA_INFO of `0x00000000` in the
 `allitems.it` file) by default.
 
 More research on this last field is needed.
+
+## SAV (ObsCure)
+
+General structure of the `.sav` files of the first game (everything is in LSB):
+
+| Type           | Size | Name         | Description                             |
+|----------------|------|--------------|-----------------------------------------|
+| SAV_Header     | 22   | Header       | Gives general info on the game.         |
+| SAV_Items      |      | ItemsAndInfo | Sequence of picked up items.            |
+| SAV_Characters |      | Characters   | Information on each playable character. |
+| SAV_Progress   |      | Progress     | Progress in the game and in each room.  |
+
+### SAV_Header
+
+| Type          | Size | Name           | Description                                                     |
+|---------------|------|----------------|-----------------------------------------------------------------|
+| uint32        | 4    | CRC32          | CRC32 checksum of the rest of the contents of the file.         |
+| uint8         | 1    | ???            | ??? 0x06                                                        |
+| uint32        | 4    | Index          | Index of the savefile. It's 'N' in "gameN.sav".                 |
+| ROOM_ID_SHORT | 1    | Room           | Room where the game was saved.                                  |
+| uint32        | 4    | Play time      | Duration of the gameplay in milliseconds.                       |
+| uint8         | 1    | Times saved    | Number of times the player saved the game.                      |
+| ???           | 2    | ???            | ???                                                             |
+| DIFF_MODE     | 1    | Diff mode      | Difficulty and mode of the game.                                |
+| ???           | 2    | ???            | ??? Usually 0x6400                                              |
+| uint16        | 2    | Length of rest | Length of SAV_Items + SAV_Characters (excluding these 2 bytes). |
+
+For more info on the ROOM_ID_SHORT type, check
+[this link](constants.md/#room_id-and-room_id_short).
+
+### SAV_Items
+
+| Type              | Size | Name                | Description                                                                     |
+|-------------------|------|---------------------|---------------------------------------------------------------------------------|
+| uint16            | 2    | Length of SAV_Items | Length of this SAV_Items section (including these 2 bytes).                     |
+| uint8             | 1    | Inventory capacity  | Let's call the value 'I'. I * sizeof(SAV_ItemOrAmmo) = Length of SAV_Items - 3. |
+| SAV_ItemOrAmmo[I] | I*9  | Items               | Sequence of items, the inventory itself.                                        |
+
+Sav_ItemOrAmmo is the union of the following types:
+
+- SAV_Item
+- SAV_Ammo
+
+SAV_Item:
+
+| Type       | Size | Name       | Description                                    |
+|------------|------|------------|------------------------------------------------|
+| uint32     | 4    | Item UID   | Unique identifier for the item.                |
+| uint8      | 1    | Number     | How many examples of this item the player has. |
+| EXTRA_INFO | 4    | Extra info | Extra info on the item.                        |
+
+SAV_Ammo:
+
+| Type      | Size | Name      | Description                                                      |
+|-----------|------|-----------|------------------------------------------------------------------|
+| AMMO_TYPE | 1    | Ammo type | `0x06` for shotgun and `0x07` for handgun.                       |
+| uint32    | 4    | ???       | 0x00 00 00 XX where 0xXX is the least valuable byte of Quantity. |
+| uint32    | 4    | Quantity  | Quantity of ammunition of said type.                             |
+
+Despite being "Quantity" in LSB (like everything in SAV files), "???" is in MSB.
+So the first 3 bytes are zeros and the 4th byte is this `0xXX` described above.
+
+At this point you might wonder how the game knows if the SAV_ItemOrAmmo is a
+SAV_Item or a SAV_Ammo. The game checks the first byte, if it's a `0x06` or a
+`0x07`, then it's a SAV_Ammo, otherwise it's a SAV_Item. That's because there
+is no item UID in the game ending with `0x06` or `0x07` (note how I wrote
+"ending" instead of "starting" because it's in LSB).
+
+### SAV_Characters
+
+| Type             | Size | Name       | Description                             |
+|------------------|------|------------|-----------------------------------------|
+| SAV_Character[5] |      | Characters | An array of 5 SAV_Character structures. |
+
+In this sequence of 5 SAV_Character, the order of the characters is Stan, Josh,
+Kenny, Ashley and Shannon.
+
+SAV_Character:
+
+| Type          | Size | Name                    | Description                                                     |
+|---------------|------|-------------------------|-----------------------------------------------------------------|
+| uint16        | 2    | Length of SAV_Character | Length of SAV_Character (including these 2 bytes).              |
+| uint8         | 1    | Capacity                | Weapons inventory capacity. Let's call it 'W'.                  |
+| uint32        | 4    | Door                    | Represents the door next to which the character is standing.    |
+| uint8         | 1    | Room                    | Room where the character is located.                            |
+| bool          | 1    | IsTeammate?             | ??? `0x01` if this character is the teammate, `0x00` otherwise. |
+| float         | 4    | X pos?                  | Coordinate of the character along the X axis.                   |
+| float         | 4    | Y pos?                  | Coordinate of the character along the Y axis.                   |
+| float         | 4    | Z pos?                  | Coordinate of the character along the Z axis.                   |
+| uint8         | 1    | Rotation?               | Rotation of the character.                                      |
+| uint32        | 4    | Current weapon UID      | The Item UID of the weapon the character is holding.            |
+| ???           | 29   | ???                     | ???                                                             |
+| float         | 4    | Health                  | Health of the character.                                        |
+| SAV_Weapon[W] | W*9  | Weapons                 | Weapons inventory of the character.                             |
+
+SAV_Weapon:
+
+| Type            | Size | Name            | Description                                                      |
+|-----------------|------|-----------------|------------------------------------------------------------------|
+| uint32          | 4    | Weapon item UID | Unique identifier of the weapon (which is also a pickable item). |
+| uint8           | 1    | Quantity        | Quantity of said weapon (always `0x01`).                         |
+| Ammo_Flash_Info | 4    | AmmoFlashlight  | Ammo in the chamber of the weapon and attached flashlight.       |
+
+Ammo_Flash_Info has a weird structure, let's imagine this as a uint32 in its
+MSB notation (even though it's stored in LSB in the `.sav` file):
+`0xXX XX XY YY`, the least valuable byte is `0xYY`, the next one is `0xXY`, then
+the two `0xXX`. `0xXX XX X` stores information on the flashlight that is
+attached to the gun, while `0xY YY` stores the ammunition the gun holds in its
+chamber. Usually the game only uses 8bits (or even 4bits, since it's usually a
+number between 0 and 15), so the least valuable byte `0xYY`, but it actually
+reads the 12bits `0xY YY`, so you can actually have up until 16^3 - 1 bullets in
+the chamber if you modify the `.sav` file manually.
+
+### SAV_Progress
+
+| Type                 | Size | Name   | Description                                                                |
+|----------------------|------|--------|----------------------------------------------------------------------------|
+| SAV_Progress_Chunk[] |      | Chunks | Each of these generic chunks give information on the progress in the game. |
+
+SAV_Progress_Chunk:
+
+| Type              | Size | Name    | Description                                                       |
+|-------------------|------|---------|-------------------------------------------------------------------|
+| uint16            | 2    | Length  | Length of the chunk (excluding these 2 bytes). Let's call it 'C'. |
+| SAV_Chunk_Content | C    | Content | The content of the chunk, which can have different structures.    |
+
+The first 3 SAV_Progress_Chunks give general information on the progress in the game, like,
+for example, the drawings in the map. While the other chunks give information
+on each specific room. This structure is a union of the following
+structures:
+
+- SAV_Room_Chunk_Content
+
+Structure of the SAV_Room_Chunk_Content:
+
+| Type          | Size | Name | Description                                                                |
+|---------------|------|------|----------------------------------------------------------------------------|
+| ROOM_ID_SHORT | 1    | Room | The chunk gives information on this room.                                  |
+| ???           | 1    | ???  | ??? Gives information on the kinematics that have been played in the room? |
+| ???           | 1    | ???  | ??? 0x00?                                                                  |
+| ???           | ?    | ???  | ???                                                                        |
