@@ -1,6 +1,10 @@
 # Requirements
 You need to install a recent version of Python and
 [MkDocs](https://www.mkdocs.org/getting-started/) (the version used is 1.6.1).
+To install said package, you can simply use the following command:
+```
+pip install -r requirements.txt
+```
 
 # Developing
 If you want to modify the docs, I recommend launching the server like this:
