@@ -1,6 +1,7 @@
 site_name: ObsCure Docs
 nav:
   - Home: index.md
+  - Introduction: intro.md
   - Items: items.md
   - File Formats: formats.md
   - Constants & Types: constants.md
