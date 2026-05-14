@@ -49,18 +49,42 @@ TM_SECTION_TYPE can have the following values:
 
 | Value | Meaning                 |
 |-------|-------------------------|
+| 0x04  | Door coordinates (?)    |
 | 0x06  | NPC section (?)         |
 | 0x07  | Description section (?) |
 | 0x08  | Item section            |
 
 TM_Generic_Content is just a union of these structures:
 
+- TM_Coord_Content
 - TM_Item_Content
 
 Depending on the TM_SECTION_TYPE, the content must be interpreted in different
 ways. For example, if TM_SECTION_TYPE is `0x08`, then the content of the section
 must be interpreted as a TM_Item_Content structure. Here are the formats of each
 of the previous structures.
+
+### TM_Coord_Content:
+| Type   | Size | Name    | Description                              |
+|--------|------|---------|------------------------------------------|
+| ???    | 4    | ???     | ???                                      |
+| ???    | 4    | ???     | ???                                      |
+| uint32 | 4    | X pos 1 | Coordinate along the X axis of player.   |
+| uint32 | 4    | Y pos 1 | Coordinate along the Y axis of player.   |
+| uint32 | 4    | Z pos 1 | Coordinate along the Z axis of player.   |
+| float  | 4    | ???     | ???                                      |
+| float  | 4    | ???     | ???                                      |
+| ???    | 4    | ???     | ??? 0x00 00 00 00 ?                      |
+| uint32 | 4    | X pos 2 | Coordinate along the X axis of teammate. |
+| uint32 | 4    | Y pos 2 | Coordinate along the Y axis of teammate. |
+| uint32 | 4    | Z pos 2 | Coordinate along the Z axis of teammate. |
+| float  | 4    | ???     | ???                                      |
+| float  | 4    | ???     | ???                                      |
+| ???    | 4    | ???     | ??? 0x00 00 00 00 ?                      |
+
+These TM_Coord_Content seem to hold info on the position and rotation of both
+characters (player and teammate, or Player 1 and Player 2) when they enter the
+room through a specific door. The first 2 fields probably specify the door.
 
 ### TM_Item_Content:
 
