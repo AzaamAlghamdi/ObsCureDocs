@@ -246,13 +246,38 @@ SAV_Progress_Chunk:
 | uint16            | 2    | Length  | Length of the chunk (excluding these 2 bytes). Let's call it 'C'. |
 | SAV_Chunk_Content | C    | Content | The content of the chunk, which can have different structures.    |
 
-The first 3 SAV_Progress_Chunks give general information on the progress in the game, like,
-for example, the drawings in the map. While the other chunks give information
-on each specific room. This structure is a union of the following
-structures:
+The first 3 SAV_Progress_Chunks give general information on the progress in the
+game, like, for example, the drawings in the map. While the other chunks give
+information on each specific room. The SAV_Chunk_Content structure is a union of
+the following structures:
 
+- SAV_General1_Chunk_Content
 - SAV_Room_Chunk_Content
 
+#### SAV_General1_Chunk_Content
+
+This is the first Progress Chunk, it gives general information on the progress
+in the game. Structure of the SAV_General1_Chunk_Content:
+
+| Type                | Size | Name               | Description                                             |
+|---------------------|------|--------------------|---------------------------------------------------------|
+| bool02              | 1    | isKennysBagTaken   | Has Kenny's bag been stolen?                            |
+| ???                 | 29   | ???                | ???                                                     |
+| bool                | 1    | friedLibKin        | Has Friedman's Kinematic at the library been triggered? |
+| ???                 | 11   | ???                | ???                                                     |
+| bool02              | 1    | diningHallLightsOn | Are the lights in the Dining Hall on?                   |
+| ???                 | 77   | ???                | ???                                                     |
+| bool                | 1    | stanFound          | Is Stan in the team? Has his cutscene been triggered?   |
+| CHAPTER_MAP_DRAWING | 1    | chapterMapDrawing  | What drawing can be seen in the map?                    |
+| ???                 | 38   | ???                | ???                                                     |
+
+Bool is `0x00` if false and `0x01` if true. Bool02 is `0x00` if false and `0x02`
+if true. The size of this structure is always `0xA0`.
+
+#### SAV_Room_Chunk_Content
+
+This structure gives information on a specific room like the monsters and their
+health, the position of props, the items that have been picked up, etc.
 Structure of the SAV_Room_Chunk_Content:
 
 | Type          | Size | Name | Description                                                                |
