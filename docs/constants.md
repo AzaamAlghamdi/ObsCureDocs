@@ -276,3 +276,15 @@ the rooms:
 | 0xC3          | m002    | Exterior                             |
 | 0xC4          | m003    | Gym courtyard                        |
 | 0xC5          | m100    | Central Courtyard (1st floor)        |
+
+## Both games
+
+### LString
+
+LStrings are just strings that tell you how long they are. Even though we're
+calling it "string", it is NOT null terminated. Here's their format:
+
+| Type    | Size | Name    | Description                                    |
+|---------|------|---------|------------------------------------------------|
+| uint32  | 4    | Length  | Length of the string in MSB. Let's call it L.  |
+| uint8[] | L    | Content | The string.                                    |

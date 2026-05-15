@@ -3,6 +3,7 @@ nav:
   - Home: index.md
   - Introduction: intro.md
   - Items: items.md
+  - Events: events.md
   - File Formats: formats.md
   - Constants & Types: constants.md
   - About: about.md

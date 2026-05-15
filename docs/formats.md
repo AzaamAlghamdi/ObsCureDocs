@@ -3,6 +3,11 @@
 The "Size" column in each table should be interpreted in bytes, unless specified
 otherwise.
 
+The `Type[N]` notation represents a sequence of `N` structures of
+type `Type`, but it doesn't necessarily mean that all `Type`s have the same
+length. It just means that you have a `Type`, then another, and another, until
+you reach `N` occurrences.
+
 ## IT
 General structure of the `.it` format (everything is in MSB):
 
@@ -256,3 +261,117 @@ Structure of the SAV_Room_Chunk_Content:
 | ???           | 1    | ???  | ??? Gives information on the kinematics that have been played in the room? |
 | ???           | 1    | ???  | ??? 0x00?                                                                  |
 | ???           | ?    | ???  | ???                                                                        |
+
+## HOE (ObsCure)
+
+Here's the general structure of HOE files (everything is in MSB):
+
+| Type        | Size | Name   | Description                                      |
+|-------------|------|--------|--------------------------------------------------|
+| float?      | 4    | ???    | ???                                              |
+| HOE_Chunk[] | ?    | Chunks | A sequence of chunks, there are different types. |
+| uint32      | 4    | End    | `0x00 00 00 04` indicating the end of the file.  |
+
+The HOE_Chunk structure is the following:
+
+| Type                | Size | Name       | Description                                                         |
+|---------------------|------|------------|---------------------------------------------------------------------|
+| HOE_CHUNK_TYPE      | 4    | Chunk type | Specifies the type of chunk, and how its content must be intepreted |
+| HOE_Content         | ?    | Content    | The content of the chunk.                                           |
+
+HOE_CHUNK_TYPE can have the following values:
+
+| Value | Meaning                 |
+|-------|-------------------------|
+| 0x02  | Collisions              |
+| 0x03  | Imported functions ???  |
+| 0x05  | Event definition        |
+| 0x06  | Event Instances         |
+
+Chunks of the same type are always contiguous, and the order in which the
+types of chunks are found in the file is the following: `0x03` (if there is
+any), `0x02`, `0x05`, and finally `0x06`.
+
+
+HOE_Content is just the union of the following structures:
+
+- HOE_Collision
+- HOE_Imports
+- HOE_Event
+- HOE_Instance
+
+Depending on the chunk type, the content must be interpreted as one of the
+following structures.
+
+### HOE_Collision
+
+This structure defines the collisions of the room. Thanks to it, characters
+don't pass through tables, walls, etc. Here's its format:
+
+| Type   | Size | Name            | Description                                                    |
+|--------|------|-----------------|----------------------------------------------------------------|
+| uint32 | 4    | Length of chunk | Length of the chunk, excluding these 4 bytes. Let's call it L. |
+| ???    | L    | ???             | ??? Unknown format                                             |
+
+### HOE_Imports
+
+This structure seems to mention the name of some functions. Here's its format:
+
+| Type   | Size | Name            | Description                                                    |
+|--------|------|-----------------|----------------------------------------------------------------|
+| uint32 | 4    | Length of chunk | Length of the chunk, excluding these 4 bytes. Let's call it L. |
+| ???    | L    | ???             | ??? Unknown format                                             |
+
+### HOE_Event
+
+There's still a lot of research to do, especially regarding the scripting
+language, but this is more or less the structure of the event definitions (most
+of the time):
+
+| Type       | Size | Name              | Description                                                 |
+|------------|------|-------------------|-------------------------------------------------------------|
+| float      | 4    | ???               | Always 4.0??                                                |
+| LString    | ?    | Name              | Name of the event.                                          |
+| ???        | ?    | ???               | ???                                                         |
+| uint32     | 4    | Number of strings | Number of following strings, let's call it N.               |
+| LString[N] | ?*N  | Strings?          | ???                                                         |
+| uint32     | 4    | Number of vars    | Number of following variables, let's call it V.             |
+| HOE_Var[V] | 8*V  | Vars              | Variables used in HOE scripts.                              |
+| uint32     | 4    | Number of -1s     | Number of following `0xFF FF FF FF`??? Let's call it M.     |
+| uint32[M]  | 4*M  | Minus ones???     | An array of `0xFF FF FF FF`s???                             |
+| ???        | ???  | Script            | This is a script in some bytecode language. Unknown format. |
+
+For more information on LStrings, check [this link](constants.md/#lstring).
+The scripting language includes a lot of strings that seem to be function names,
+it also includes what seems to be a bunch of OP codes, like `0x65`, `0xC9`,
+`0xD0`, etc. It also includes sometimes 32bits integers that represent a
+HOE_Var, to be precise they are the index of a specific HOE_Var in the `Vars`
+array. The scripts sometimes end with `0x00 00 00 07`.
+
+The HOE_Var structure has the following format:
+
+| Type         | Size | Name  | Description            |
+|--------------|------|-------|------------------------|
+| HOE_VAR_TYPE | 4    | Type  | The type of the value. |
+| uint32/float | 4    | Value | The value.             |
+
+HOE_VAR_TYPE dictates how the value must be intepreted. It can have the
+following values:
+
+| Value | Meaning           |
+|-------|-------------------|
+| 0x01  | Unsigned Integer  |
+| 0x02  | Float             |
+
+### HOE_Instance
+
+| Type   | Size | Name                     | Description                                                    |
+|--------|------|--------------------------|----------------------------------------------------------------|
+| uint8  | 1    | ???                      | ???                                                            |
+| uint32 | 4    | Length of Instance chunk | The length of the rest of this chunk, including these 4 bytes. |
+| ???    | ???  | Unknown content          | ???                                                            |
+
+Among other things, in the "Unknown content" you can find the coordinates of
+monsters (when the HOE_Instance represents a monster, which is not always the
+case) in the form of an array of 3 floats (X, Y and Z), usually after the
+"gIsAttacking" string.
