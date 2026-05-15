@@ -259,20 +259,35 @@ the following structures:
 This is the first Progress Chunk, it gives general information on the progress
 in the game. Structure of the SAV_General1_Chunk_Content:
 
-| Type                | Size | Name               | Description                                             |
-|---------------------|------|--------------------|---------------------------------------------------------|
-| bool02              | 1    | isKennysBagTaken   | Has Kenny's bag been stolen?                            |
-| ???                 | 29   | ???                | ???                                                     |
-| bool                | 1    | friedLibKin        | Has Friedman's Kinematic at the library been triggered? |
-| ???                 | 11   | ???                | ???                                                     |
-| bool02              | 1    | diningHallLightsOn | Are the lights in the Dining Hall on?                   |
-| ???                 | 77   | ???                | ???                                                     |
-| bool                | 1    | stanFound          | Is Stan in the team? Has his cutscene been triggered?   |
-| CHAPTER_MAP_DRAWING | 1    | chapterMapDrawing  | What drawing can be seen in the map?                    |
-| ???                 | 38   | ???                | ???                                                     |
+| Type        | Size | Name               | Description                                             |
+|-------------|------|--------------------|---------------------------------------------------------|
+| bool02      | 1    | isKennysBagTaken   | Has Kenny's bag been stolen?                            |
+| ???         | 29   | ???                | ???                                                     |
+| bool        | 1    | friedLibKin        | Has Friedman's Kinematic at the library been triggered? |
+| ???         | 11   | ???                | ???                                                     |
+| bool02      | 1    | diningHallLightsOn | Are the lights in the Dining Hall on?                   |
+| ???         | 77   | ???                | ???                                                     |
+| bool        | 1    | stanFound          | Is Stan in the team? Has his cutscene been triggered?   |
+| MAP_DRAWING | 1    | mapDrawing         | What drawing can be seen in the map?                    |
+| ???         | 38   | ???                | ???                                                     |
 
 Bool is `0x00` if false and `0x01` if true. Bool02 is `0x00` if false and `0x02`
 if true. The size of this structure is always `0xA0`.
+
+MAP_DRAWING can take these hexadecimal values:
+
+| MAP_DRAWING | Description                           |
+|-------------|---------------------------------------|
+| 01          | “Friedman” on the classrooms building |
+| 02          | “Friedman” on the library building    |
+| 03          | “Janitor”                             |
+| 04          | “Nurse” and arrow                     |
+| 05          | Wheel on the Administration building  |
+| 06          | Stairs on amphitheatre                |
+| 07          | “Nurse” again (and lockers?)          |
+| 08          | Keyhole on the library building       |
+| 09          | Projector on amphitheatre             |
+| 0A          | Keypad on the big door                |
 
 #### SAV_Room_Chunk_Content
 
