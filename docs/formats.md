@@ -350,8 +350,8 @@ don't pass through tables, walls, etc. Here's its format:
 
 | Type   | Size | Name            | Description                                                    |
 |--------|------|-----------------|----------------------------------------------------------------|
-| uint32 | 4    | Length of chunk | Length of the chunk, excluding these 4 bytes. Let's call it L. |
-| ???    | L    | ???             | ??? Unknown format                                             |
+| uint32 | 4    | Length of chunk | Length of the chunk, including these 4 bytes. Let's call it L. |
+| ???    | L-4  | ???             | ??? Unknown format                                             |
 
 ### HOE_Imports
 
@@ -359,8 +359,8 @@ This structure seems to mention the name of some functions. Here's its format:
 
 | Type   | Size | Name            | Description                                                    |
 |--------|------|-----------------|----------------------------------------------------------------|
-| uint32 | 4    | Length of chunk | Length of the chunk, excluding these 4 bytes. Let's call it L. |
-| ???    | L    | ???             | ??? Unknown format                                             |
+| uint32 | 4    | Length of chunk | Length of the chunk, including these 4 bytes. Let's call it L. |
+| ???    | L-4  | ???             | ??? Unknown format                                             |
 
 ### HOE_Event
 
