@@ -415,3 +415,218 @@ Among other things, in the "Unknown content" you can find the coordinates of
 monsters (when the HOE_Instance represents a monster, which is not always the
 case) in the form of an array of 3 floats (X, Y and Z), usually after the
 "gIsAttacking" string.
+
+
+## HVP
+
+`.hvp` is the archive container used by the engine to ship the game's
+data. The game reads from four of them: `datapack.hvp`, `cachpack.hvp`,
+`kinepack.hvp`, and `strmpack.hvp`. Internally a `.hvp` is a header,
+followed by a tree-structured table of contents, followed by a region
+of zlib-compressed file blobs.
+
+General structure of the `.hvp` format (everything is in MSB):
+
+| Type        | Size | Name        | Description                                                                |
+|-------------|------|-------------|----------------------------------------------------------------------------|
+| HVP_Header  | 40   | Header      | File-wide header, including the two CRC32s and the root entry count.       |
+| HVP_Entry[] | ?    | TOC entries | A tree of directory and file entries describing every packed file.         |
+| uint8[]     | ?    | Data        | Concatenation of all packed file blobs. Each blob is referenced by offset. |
+
+### HVP_Header
+
+| Type   | Size | Name           | Description                                                                       |
+|--------|------|----------------|-----------------------------------------------------------------------------------|
+| ???    | 28   | ???            | Magic and reserved engine fields. Always identical across all four archives.      |
+| uint32 | 4    | Data offset    | Offset (relative to byte 40) where the data section starts. Also = TOC byte size. |
+| uint32 | 4    | Header CRC32   | CRC32 of bytes `[0..31]` (i.e. everything before the two CRC fields).             |
+| uint32 | 4    | Entries CRC32  | CRC32 of bytes `[40..40+Data_offset]`, i.e. of the entire TOC section.            |
+| uint32 | 4    | Root count     | Number of top-level entries in the TOC.                                           |
+
+After the header (at file offset 40), the TOC begins. Both CRC32s use
+the standard polynomial `0xEDB88320`. They are validated on read; if
+either fails the engine refuses to mount the archive.
+
+### HVP_Entry
+
+The TOC is a tree of `HVP_Entry` records. Each record is either a
+directory (which holds a child count and a list of children that
+follow it sequentially) or a file (which holds metadata for a packed
+blob). The two variants share a leading 4-byte size field but
+otherwise have different layouts:
+
+| Type        | Size | Name       | Description                                                                                    |
+|-------------|------|------------|------------------------------------------------------------------------------------------------|
+| uint32      | 4    | Entry size | Total size of this entry in bytes. The next entry begins immediately after.                    |
+| HVP_Content | E-4  | Content    | Either an `HVP_Dir_Content` or an `HVP_File_Content`, depending on the layout of these bytes.  |
+
+To tell directories from files: compute `name_len = Entry_size - 17`.
+If `name_len > 0`, and the byte at offset `+16` from the entry start
+equals `name_len`, and the `name_len` bytes after it are all printable
+ASCII, the entry is a directory. Otherwise it's a file.
+
+#### HVP_Dir_Content
+
+| Type         | Size | Name         | Description                                                                |
+|--------------|------|--------------|----------------------------------------------------------------------------|
+| ???          | 5    | ???          | ???                                                                        |
+| uint32       | 4    | Child count  | Number of `HVP_Entry` records that belong to this directory. Let's call it C. |
+| ???          | 3    | ???          | ???                                                                        |
+| uint8        | 1    | Name length  | Length of the directory name. Let's call it N. Equal to `Entry_size - 17`. |
+| char[N]      | N    | Name         | Directory name in ASCII. No null terminator.                               |
+| HVP_Entry[C] | ?    | Children     | The C entries immediately following this one are the directory's children. |
+
+#### HVP_File_Content
+
+| Type    | Size | Name              | Description                                                                                    |
+|---------|------|-------------------|------------------------------------------------------------------------------------------------|
+| uint32  | 4    | Variant tag       | `0x00000001` for File entries.                                                                 |
+| uint8   | 1    | Is compressed     | `0x01` if the blob is zlib-compressed, `0x00` if stored raw.                                   |
+| uint32  | 4    | Compressed size   | Size of the blob in the data section.                                                          |
+| uint32  | 4    | Decompressed size | Size of the file after decompression (equal to Compressed size if not compressed).             |
+| int32   | 4    | Checksum          | `bytes_sum` of the compressed blob (see below).                                                |
+| uint32  | 4    | Offset            | Absolute file offset where the compressed blob starts.                                         |
+| ???     | 3    | ???               | Padding / reserved.                                                                            |
+| uint8   | 1    | Name length       | Length of the file name. Let's call it N.                                                      |
+| char[N] | N    | Name              | File name (just the basename, not the full path). The full path is reconstructed by walking up through the parent directory entries. |
+
+The `bytes_sum` checksum is *not* a CRC. It is computed over the
+compressed bytes as follows:
+
+```
+sum = 0 (signed int32)
+for each 4-byte chunk in the blob, read as LE uint32:
+    sum = sum + chunk      // wrapping signed addition
+for each remaining byte (if length not a multiple of 4):
+    sum = sum + byte       // wrapping signed addition
+```
+
+The blob itself, when `Is compressed == 0x01`, is a standard zlib
+stream: a 2-byte header (`0x78 0xDA` for best compression — `0x78
+0x9C` is also accepted), followed by the deflate-compressed data,
+followed by a 4-byte adler32 in big-endian.
+
+### Modifying an HVP
+
+To replace a file inside an HVP without rewriting the whole archive:
+
+1. Walk the TOC to find the target `HVP_File_Content` entry.
+2. Compress the new file with zlib and compute its `bytes_sum`
+   checksum.
+3. Append the new compressed blob to the end of the `.hvp` file.
+4. Overwrite the four fields in the TOC entry: `Compressed size`,
+   `Decompressed size`, `Checksum`, and `Offset`. The new `Offset`
+   is the position where you appended the blob.
+5. Recompute and write the `Entries CRC32` (bytes `[40..40+Data
+   offset]`) and then the `Header CRC32` (bytes `[0..31]`).
+
+The original blob's bytes remain in the file but become unreferenced.
+This append-at-EOF strategy works because the engine resolves files
+only through the TOC offset, never by scanning the data section.
+
+
+## LNG
+
+`.lng` is the localized-text format. Each language ships its own
+copy in `_texts/` (`en.lng`, `fr.lng`, `de.lng`, etc.). The format is
+a flat sequence of length-prefixed entries indexed by a 32-bit ID;
+the rest of the engine looks up strings by passing this ID.
+
+General structure of the `.lng` format (headers and lengths are in
+MSB; UTF-16 payloads are in LSB):
+
+| Type        | Size | Name        | Description                                                  |
+|-------------|------|-------------|--------------------------------------------------------------|
+| ???         | 4    | ???         | Padding / version field, usually zero.                       |
+| uint32      | 4    | Entry count | Number of `LNG_Entry` records that follow.                   |
+| LNG_Entry[] | ?    | Entries     | Sequence of entries.                                         |
+
+### LNG_Entry
+
+| Type        | Size | Name    | Description                                                                       |
+|-------------|------|---------|-----------------------------------------------------------------------------------|
+| uint32      | 4    | ID      | Unique 32-bit identifier the engine uses to look up this string.                  |
+| uint32      | 4    | Size    | Size of the payload that follows (the `Content` field). Let's call it L.         |
+| LNG_Content | L    | Content | The string payload, either Windows-1252 or UTF-16 LE.                            |
+
+`LNG_Content` is a union of two encodings, distinguished by the first
+byte:
+
+- If the first byte is `0x00`, the rest of the payload is a
+  Windows-1252 (8-bit Latin) string terminated by `0x00`.
+- If the first byte is `0x01`, the second byte is a marker (`0x1C`)
+  and the rest of the payload is a UTF-16 LE string terminated by
+  `0x00 0x00`.
+
+#### LNG_Win1252_Content
+
+| Type    | Size | Name           | Description                                            |
+|---------|------|----------------|--------------------------------------------------------|
+| uint8   | 1    | Encoding flag  | Always `0x00`.                                         |
+| char[?] | ?    | String         | Windows-1252 encoded text, null-terminated.            |
+
+#### LNG_UTF16_Content
+
+| Type     | Size | Name           | Description                                           |
+|----------|------|----------------|-------------------------------------------------------|
+| uint8    | 1    | Encoding flag  | Always `0x01`.                                        |
+| uint8    | 1    | Marker         | Always `0x1C`.                                        |
+| uint16[?]| ?    | String         | UTF-16 LE codepoints, terminated by `0x0000`.         |
+
+Notes:
+
+- A single `.lng` file may mix both encodings entry-by-entry.
+- IDs are not necessarily contiguous and may be reused across files
+  for the same logical string.
+- The engine renders strings through the bitmap font glyph table
+  (see below), so any codepoint used in a UTF-16 string must have a
+  corresponding glyph entry in the EXE's glyph table, otherwise it
+  renders as a blank or fallback glyph.
+
+
+## Font glyph table (Obscure.exe data)
+
+The engine renders all text through pre-rendered bitmap font atlases
+in TGA form: `font_holstein16.tga`, `font_holstein18.tga`,
+`font_holstein24.tga`, and `font_holstein30.tga`. There are no TTF
+or OTF files anywhere in the game. Each glyph in those atlases is
+located via a lookup table embedded in `Obscure.exe`.
+
+The original table has 150 entries covering Windows-1252 printable
+characters. Two instructions in the engine reference it:
+
+- File offset `0x05AB89` in `Obscure.exe` contains the table's
+  virtual address (4-byte immediate).
+- File offset `0x05AB90` contains the entry count (4-byte
+  immediate).
+
+### GlyphSlot
+
+| Type   | Size | Name      | Description                                                                       |
+|--------|------|-----------|-----------------------------------------------------------------------------------|
+| uint16 | 2    | Codepoint | Unicode codepoint that this slot represents.                                      |
+| uint16 | 2    | Atlas X   | Left edge of the glyph rectangle in the atlas (texture pixel coordinates).        |
+| uint16 | 2    | Atlas Y   | Top edge of the glyph rectangle in the atlas (texture pixel coordinates).         |
+| uint16 | 2    | Width     | Width of the glyph rectangle (i.e. how many texture pixels to read horizontally). |
+| uint16 | 2    | Advance   | Pen advance after drawing this glyph. Combining marks (such as Arabic tashkeel) use 0 here. |
+
+The four font atlases share a single coordinate space — the same
+`Atlas X` / `Atlas Y` values are used by all four font files, which
+in the games examined is why all four atlas textures have identical
+pixel content at the glyph rectangles.
+
+To add new glyphs (for example, to support a codepoint range outside
+Windows-1252) one approach is:
+
+1. Add a new PE section to `Obscure.exe` large enough to hold an
+   extended table.
+2. Write the extended `GlyphSlot[]` table inside the new section.
+3. Overwrite the 4-byte immediates at `0x05AB89` (VA) and `0x05AB90`
+   (count) to point at the new table.
+4. Pack the new glyphs into the existing atlas TGAs at any free
+   region. The atlas is hardcoded to `1024 x 1024` pixels — larger
+   atlases are rejected by the renderer.
+
+A separate table reference used by the `font_holstein30.tga`
+rendering path lives at a different code offset and must be
+redirected independently if the new table also serves that size.
