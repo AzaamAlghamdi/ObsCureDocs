@@ -277,18 +277,6 @@ the rooms:
 | 0xC4          | m003    | Gym courtyard                        |
 | 0xC5          | m100    | Central Courtyard (1st floor)        |
 
-## Both games
-
-### LString
-
-LStrings are just strings that tell you how long they are. Even though we're
-calling it "string", it is NOT null terminated. Here's their format:
-
-| Type    | Size | Name    | Description                                    |
-|---------|------|---------|------------------------------------------------|
-| uint32  | 4    | Length  | Length of the string in MSB. Let's call it L.  |
-| uint8[] | L    | Content | The string.                                    |
-
 ### HVP_VARIANT
 Distinguishes the kind of entry inside an HVP TOC. Encoded as a uint32
 in MSB. Only one value is known and used:
@@ -313,3 +301,16 @@ typedef enum
 ```
 When the encoding is `LNG_ENCODING_UTF16`, the very next byte is a
 fixed marker (`0x1C`) before the UTF-16 LE codepoints begin.
+
+## Both games
+
+### LString
+
+LStrings are just strings that tell you how long they are. Even though we're
+calling it "string", it is NOT null terminated. Here's their format:
+
+| Type    | Size | Name    | Description                                    |
+|---------|------|---------|------------------------------------------------|
+| uint32  | 4    | Length  | Length of the string in MSB. Let's call it L.  |
+| uint8[] | L    | Content | The string.                                    |
+
