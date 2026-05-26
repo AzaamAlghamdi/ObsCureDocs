@@ -28,6 +28,23 @@ can read the files more easily, and so that we can modify them as we want. To
 check all the file formats that have already been reversed, check the
 [File Formats](formats.md) sections.
 
+The four HVP archives that ship with ObsCure (the first game) each
+hold a different category of data:
+
+| Archive          | Size (approx.) | Contents                                                                |
+|------------------|----------------|-------------------------------------------------------------------------|
+| `datapack.hvp`   | ~664 MB        | Main game content: text strings, scripts, models, textures, room data.  |
+| `cachpack.hvp`   | ~29 MB         | Preload cache textures (HUD, fonts, small icons).                       |
+| `kinepack.hvp`   | ~1.1 GB        | Pre-rendered cutscene videos.                                           |
+| `strmpack.hvp`   | ~634 MB        | Streaming audio (voice lines, music).                                   |
+
+If you're translating text or replacing UI textures, the file you
+care about is almost always `datapack.hvp`. The HUD font atlas
+(`font_holstein16.tga`) lives in `cachpack.hvp`.
+
+For the full binary layout of HVP archives see the
+[HVP section](formats.md/#hvp).
+
 The executable file stores all the functions that are executed during the
 execution of the game. It is possible to modify it directly, but it's a hard
 task and requires abilities in reverse engineering. It's in x86 (32 bits) machine
