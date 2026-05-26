@@ -478,17 +478,20 @@ ASCII, the entry is a directory. Otherwise it's a file.
 
 #### HVP_File_Content
 
-| Type    | Size | Name              | Description                                                                                    |
-|---------|------|-------------------|------------------------------------------------------------------------------------------------|
-| uint32  | 4    | Variant tag       | `0x00000001` for File entries.                                                                 |
-| uint8   | 1    | Is compressed     | `0x01` if the blob is zlib-compressed, `0x00` if stored raw.                                   |
-| uint32  | 4    | Compressed size   | Size of the blob in the data section.                                                          |
-| uint32  | 4    | Decompressed size | Size of the file after decompression (equal to Compressed size if not compressed).             |
-| int32   | 4    | Checksum          | `bytes_sum` of the compressed blob (see below).                                                |
-| uint32  | 4    | Offset            | Absolute file offset where the compressed blob starts.                                         |
-| ???     | 3    | ???               | Padding / reserved.                                                                            |
-| uint8   | 1    | Name length       | Length of the file name. Let's call it N.                                                      |
-| char[N] | N    | Name              | File name (just the basename, not the full path). The full path is reconstructed by walking up through the parent directory entries. |
+| Type     | Size | Name              | Description                                                                                    |
+|----------|------|-------------------|------------------------------------------------------------------------------------------------|
+| HVP_VARIANT | 4 | Variant tag       | `0x00000001` for File entries.                                                                 |
+| uint8    | 1    | Is compressed     | `0x01` if the blob is zlib-compressed, `0x00` if stored raw.                                   |
+| uint32   | 4    | Compressed size   | Size of the blob in the data section.                                                          |
+| uint32   | 4    | Decompressed size | Size of the file after decompression (equal to Compressed size if not compressed).             |
+| int32    | 4    | Checksum          | `bytes_sum` of the compressed blob (see below).                                                |
+| uint32   | 4    | Offset            | Absolute file offset where the compressed blob starts.                                         |
+| ???      | 3    | ???               | Padding / reserved.                                                                            |
+| uint8    | 1    | Name length       | Length of the file name. Let's call it N.                                                      |
+| char[N]  | N    | Name              | File name (just the basename, not the full path). The full path is reconstructed by walking up through the parent directory entries. |
+
+For more info on `HVP_VARIANT`, check
+[this link](constants.md/#hvp_variant).
 
 The `bytes_sum` checksum is *not* a CRC. It is computed over the
 compressed bytes as follows:
@@ -558,20 +561,23 @@ byte:
   and the rest of the payload is a UTF-16 LE string terminated by
   `0x00 0x00`.
 
+For more info on `LNG_ENCODING`, check
+[this link](constants.md/#lng_encoding).
+
 #### LNG_Win1252_Content
 
 | Type    | Size | Name           | Description                                            |
 |---------|------|----------------|--------------------------------------------------------|
-| uint8   | 1    | Encoding flag  | Always `0x00`.                                         |
+| LNG_ENCODING | 1 | Encoding flag  | Always `0x00`.                                         |
 | char[?] | ?    | String         | Windows-1252 encoded text, null-terminated.            |
 
 #### LNG_UTF16_Content
 
-| Type     | Size | Name           | Description                                           |
-|----------|------|----------------|-------------------------------------------------------|
-| uint8    | 1    | Encoding flag  | Always `0x01`.                                        |
-| uint8    | 1    | Marker         | Always `0x1C`.                                        |
-| uint16[?]| ?    | String         | UTF-16 LE codepoints, terminated by `0x0000`.         |
+| Type      | Size | Name           | Description                                           |
+|-----------|------|----------------|-------------------------------------------------------|
+| LNG_ENCODING | 1 | Encoding flag  | Always `0x01`.                                        |
+| uint8     | 1    | Marker         | Always `0x1C`.                                        |
+| uint16[?] | ?    | String         | UTF-16 LE codepoints, terminated by `0x0000`.         |
 
 Notes:
 
@@ -582,6 +588,52 @@ Notes:
   (see below), so any codepoint used in a UTF-16 string must have a
   corresponding glyph entry in the EXE's glyph table, otherwise it
   renders as a blank or fallback glyph.
+
+
+## MAP
+
+`.map` files live in `_common/` (e.g. `mapgen.map`, `mapb000.map`,
+`mapd100.map`). They describe room regions for navigation/level
+purposes. Each level group has its own `.map` file; `mapgen.map`
+covers the general overview map.
+
+General structure of the `.map` format (everything is in MSB):
+
+| Type       | Size | Name        | Description                                            |
+|------------|------|-------------|--------------------------------------------------------|
+| uint32     | 4    | Entry count | Number of `MAP_Entry` records that follow. Let's call it N. |
+| ???        | 4    | ???         | Usually `0x00000000`.                                  |
+| MAP_Entry[N] | 36*N | Entries   | Per-room bounding box entries.                         |
+| ???        | ?    | ???         | Trailing data not yet decoded; size varies per file.   |
+
+### MAP_Entry
+
+| Type    | Size | Name | Description                                                                  |
+|---------|------|------|------------------------------------------------------------------------------|
+| char[4] | 4    | Name | Up to 4 ASCII characters, null-padded if shorter (e.g. `"M1\0\0"`, `"M001"`). |
+| float   | 4    | X1   | Normalized left edge in `[0..1]`.                                            |
+| float   | 4    | Y1   | Normalized top edge in `[0..1]`.                                             |
+| float   | 4    | Z1   | Sentinel. `+Inf` (`0x7F800000`) for standard rooms; `-Inf` (`0xFF800000`) for container/group entries that visually overlap with other rooms. |
+| float   | 4    | X2   | Normalized right edge in `[0..1]`.                                           |
+| float   | 4    | Y2   | Normalized bottom edge in `[0..1]`.                                          |
+| float   | 4    | Z2   | Sentinel. Always `+Inf` in the files examined.                               |
+| ???     | 8    | ???  | Trailing zeros; possibly reserved.                                           |
+
+Example entries from `mapgen.map`:
+
+| Name  | X1     | Y1     | X2     | Y2     | Z1 sentinel | Likely meaning |
+|-------|--------|--------|--------|--------|-------------|----------------|
+| M001  | 0.5657 | 0.1437 | 0.7884 | 0.3007 | `+Inf`      | A room.        |
+| M100  | 0.2886 | 0.2435 | 0.6290 | 0.6249 | `-Inf`      | Container that groups several rooms. |
+| C0    | 0.1656 | 0.1404 | 0.2633 | 0.2706 | `+Inf`      | A room.        |
+
+Note that these bounding boxes do *not* control the room highlight
+rectangles shown on the in-game map screen (changing them has no
+visible effect on the highlights), so they are probably used for
+some other purpose — pathfinding, mini-map drawing, or
+player-position-to-room lookup. The semantic meaning of the short
+names (`M0`, `B0`, `C0`, etc.) and the layout of the trailing data
+have not yet been decoded.
 
 
 ## Font glyph table (Obscure.exe data)
@@ -607,13 +659,13 @@ characters. Two instructions in the engine reference it:
 | uint16 | 2    | Codepoint | Unicode codepoint that this slot represents.                                      |
 | uint16 | 2    | Atlas X   | Left edge of the glyph rectangle in the atlas (texture pixel coordinates).        |
 | uint16 | 2    | Atlas Y   | Top edge of the glyph rectangle in the atlas (texture pixel coordinates).         |
-| uint16 | 2    | Width     | Width of the glyph rectangle (i.e. how many texture pixels to read horizontally). |
-| uint16 | 2    | Advance   | Pen advance after drawing this glyph. Combining marks (such as Arabic tashkeel) use 0 here. |
+| uint16 | 2    | Width     | Width of the glyph rectangle (how many texture pixels to read horizontally).      |
+| uint16 | 2    | Advance   | Pen advance after drawing this glyph. Combining marks use 0 here.                 |
 
 The four font atlases share a single coordinate space — the same
-`Atlas X` / `Atlas Y` values are used by all four font files, which
-in the games examined is why all four atlas textures have identical
-pixel content at the glyph rectangles.
+`Atlas X` / `Atlas Y` values are used by all four font files. In the
+versions examined this means all four atlas textures have identical
+pixel content.
 
 To add new glyphs (for example, to support a codepoint range outside
 Windows-1252) one approach is:
